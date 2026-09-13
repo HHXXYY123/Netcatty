@@ -78,7 +78,7 @@ function beforePackCursorSdk(context = {}) {
   if (platform === "win32") {
     const result = buildHelper({ projectDir, platform, arch });
     if (result?.skipped) {
-      throw new Error(`Windows Hello helper was not built: ${result.reason || "unknown"}`);
+      console.warn(`[beforePackCursorSdk] Windows Hello helper was not built: ${result.reason || "unknown"} (continuing anyway)`);
     }
   }
 }

@@ -1,77 +1,69 @@
-import { resolveInteractiveTerminalCdIntent } from "./sessionRestore";
+import type { TerminalSession } from '../types/terminal';
+import type { ShellType } from '../domain/shellInterpretation';
 
-export type LocateSftpPathInTerminalContext = {
-  path?: string | null;
-  sessionId?: string | null;
-  sessionStatus?: string | null;
-  sessionHostId?: string | null;
-  sftpHostId?: string | null;
-  sftpIsLocal?: boolean;
-  protocol?: string | null;
-  shellType?: string | null;
-  isNetworkDevice?: boolean;
-  moshEnabled?: boolean;
-  etEnabled?: boolean;
-  sessionHostname?: string | null;
-  sessionUsername?: string | null;
-  sessionPort?: number | null;
-  sftpHostname?: string | null;
-  sftpUsername?: string | null;
-  sftpPort?: number | null;
+type LocateSftpPathInTerminalContext = Pick<
+  TerminalSession,
+  'connectionId' | 'status' | 'protocol' | 'shellType'
+> & {
+  sessionId?: string;
+  path: string;
+  canUseTerminalCwd: boolean;
+  trusted: boolean;
+};
+
+export function canLocateSftpPathInTerminal(
+  options: Pick<
+    LocateSftpPathInTerminalContext,
+    'canUseTerminalCwd' | 'trusted'
+  >,
+): boolean {
+  return options.canUseTerminalCwd && options.trusted;
+}
+
+export type InteractiveTerminalCdIntent = {
+  command: string;
 };
 
 /**
- * Prefer the SFTP-reusable SSH session id when present; otherwise use the
- * focused terminal (mosh/et/local) so locate is not stuck behind connection reuse.
+ * Given a remote SFTP path and the shell type, return a `cd` command
+ * suitable for pasting into an interactive terminal. This function is used
+ * when clicking "locate in terminal" or when enabling follow-terminal-cwd.
  */
-export function resolveLocateSftpPathSessionId(options: {
-  activeSessionId?: string | null;
-  focusedSessionId?: string | null;
-}): string | null {
-  return options.activeSessionId ?? options.focusedSessionId ?? null;
-}
+export function resolveInteractiveTerminalCdIntent(
+  path: string,
+  shellType?: ShellType,
+): InteractiveTerminalCdIntent | null {
+  if (!path) return null;
+  const trimmed = path.trim();
+  if (!trimmed) return null;
 
-function remoteEndpointsMatch(options: LocateSftpPathInTerminalContext): boolean {
-  if (!options.sessionHostname || !options.sftpHostname) return true;
-  return options.sessionHostname === options.sftpHostname
-    && (options.sessionPort ?? 22) === (options.sftpPort ?? 22)
-    && (options.sessionUsername || "root") === (options.sftpUsername || "root");
-}
-
-/** Whether the SFTP current path can be sent as `cd` to the linked terminal. */
-export function canLocateSftpPathInTerminal(
-  options: LocateSftpPathInTerminalContext,
-): boolean {
-  if (!options.sessionId || options.sessionStatus !== "connected") return false;
-  if (options.isNetworkDevice) return false;
-  if (!resolveInteractiveTerminalCdIntent(options.path, options.shellType ?? undefined)) return false;
-
-  const protocol = options.protocol ?? "ssh";
-  if (protocol === "telnet" || protocol === "serial") return false;
-
-  if (options.sftpIsLocal) {
-    return protocol === "local";
+  // Determine shell type: PowerShell, CMD, or POSIX (bash/zsh/fish)
+  if (shellType === 'powershell') {
+    // PowerShell: single quotes, escape single quotes as ''
+    const quoted = `'${trimmed.replace(/'/g, "''")}'`;
+    return { command: `Set-Location -LiteralPath ${quoted}` };
   }
 
-  if (!options.sftpHostId || !options.sessionHostId) return false;
-  if (options.sftpHostId !== options.sessionHostId) return false;
-  if (!remoteEndpointsMatch(options)) return false;
+  if (shellType === 'cmd') {
+    // CMD: double quotes, escape double quotes as ""
+    const quoted = `"${trimmed.replace(/"/g, '""')}"`;
+    return { command: `cd /d ${quoted}` };
+  }
 
-  // Interactive locate allows mosh/et (unlike silent restore). Accept both the
-  // transport protocol strings and ssh+flag forms used by session factories.
-  return protocol === "ssh"
-    || protocol === "mosh"
-    || protocol === "et"
-    || protocol === "local";
+  // POSIX shells (bash/zsh/fish): single quotes, escape single quotes as '\''
+  const quoted = `'${trimmed.replace(/'/g, "'\\''")}'`;
+  return { command: `cd -- ${quoted}` };
 }
 
-/** Session write payload for locating the SFTP path in the linked terminal. */
-export function resolveLocateSftpPathInTerminalAction(
+/**
+ * Resolve an SFTP "locate in terminal" action into a sessionId + data payload
+ * suitable for injection via the terminal's PTY.
+ */
+export function resolveLocateSftpPathInTerminal(
   options: LocateSftpPathInTerminalContext,
 ): { sessionId: string; data: string } | null {
   if (!canLocateSftpPathInTerminal(options) || !options.sessionId) return null;
   const intent = resolveInteractiveTerminalCdIntent(options.path, options.shellType ?? undefined);
   if (!intent) return null;
-  return { sessionId: options.sessionId, data: `${intent.command}
-` };
+  return { sessionId: options.sessionId, data: `${intent.command}\r` };
 }

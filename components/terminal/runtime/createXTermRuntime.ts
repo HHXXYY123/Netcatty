@@ -2751,7 +2751,13 @@ export const createXTermRuntime = (ctx: CreateXTermRuntimeContext): XTermRuntime
       if (data.startsWith('file://')) {
         // Extract path from file:// URL
         const url = new URL(data);
-        const path = decodeURIComponent(url.pathname);
+        let path = decodeURIComponent(url.pathname);
+        // Windows PowerShell OSC 7 paths have a leading / before the drive letter
+        // (e.g., file://hostname/C:/Users/... -> pathname is /C:/Users/...)
+        // Strip the leading / on Windows to get a valid path
+        if (path.startsWith('/') && /^\/[A-Za-z]:/.test(path)) {
+          path = path.slice(1);
+        }
         if (path && path.length > 0) {
           currentCwd = path;
           ctx.onCwdChange?.(path);

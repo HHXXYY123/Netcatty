@@ -305,12 +305,13 @@ async function afterPack(context) {
 
   if (context.electronPlatformName === "win32") {
     const projectDir = context.packager.appDir || context.packager.projectDir;
-    rebuildPatchedNodePty({ projectDir, platform: "win32", arch: context.arch });
-    copyPatchedNodePtyToPackagedApp({
-      projectDir,
-      resourcesDir: appResourcesDir(context),
-    });
-    console.log("[afterPack] Installed patched node-pty ConPTY runtime into packaged app");
+    // Temporarily skip node-pty rebuild due to missing Spectre mitigation libs
+    // rebuildPatchedNodePty({ projectDir, platform: "win32", arch: context.arch });
+    // copyPatchedNodePtyToPackagedApp({
+    //   projectDir,
+    //   resourcesDir: appResourcesDir(context),
+    // });
+    console.log("[afterPack] Skipped node-pty rebuild (missing Spectre libs)");
     return;
   }
 

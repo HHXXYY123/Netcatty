@@ -1597,9 +1597,8 @@ const SftpSidePanelInteractiveBody: React.FC<SftpSidePanelInteractiveBodyProps> 
   }, [sftp.leftPane.connection?.id]);
 
   const followTerminalCwdHost = useMemo(() => {
-    if (sftp.leftPane.connection?.isLocal) return null;
     return displayHost;
-  }, [displayHost, sftp.leftPane.connection?.isLocal]);
+  }, [displayHost]);
 
   const effectiveFollowTerminalCwd = resolveHostFollowTerminalCwd(
     followTerminalCwdHost?.sftpFollowTerminalCwd,

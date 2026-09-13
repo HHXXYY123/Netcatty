@@ -363,7 +363,17 @@ export function resolveInheritedCwdIntent(options: {
     return null;
   }
   const cwd = options.session.cwd!.trim();
+  const protocol = options.session.protocol ?? "ssh";
   const shellType = options.session.shellType;
+  
+  // For SSH sessions, never send Windows-style paths (C:\...) — those paths came from
+  // a local shell's OSC 7 and should not be injected into a remote POSIX shell.
+  if (protocol === "ssh" || protocol === undefined) {
+    if (/^[A-Za-z]:/.test(cwd)) {
+      return null;
+    }
+  }
+  
   const quotedPath = quoteRestoreCwdArgument(cwd, shellType);
   
   let command: string;

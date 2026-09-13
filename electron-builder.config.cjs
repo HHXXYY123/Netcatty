@@ -46,7 +46,7 @@ module.exports = {
     // "posix_spawnp failed" on macOS. Linux builds set npm_config_arch in CI
     // and run ensure-node-pty-linux.sh before packaging, so the rebuild is
     // redundant but harmless there.
-    npmRebuild: true,
+    npmRebuild: false, // Temporarily disabled due to missing Spectre mitigation libs
     directories: {
         buildResources: 'build',
         output: 'release'
