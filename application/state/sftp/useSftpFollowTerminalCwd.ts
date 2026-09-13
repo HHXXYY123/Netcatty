@@ -81,7 +81,7 @@ const runInitialFollowTerminalCwdSync = async ({
   if (!cwd || !isEligible()) return false;
 
   const live = getConnection();
-  if (!live || live.id !== expectedConnectionId || live.status !== "connected" || live.isLocal) {
+  if (!live || live.id !== expectedConnectionId || live.status !== "connected") {
     return false;
   }
 
@@ -305,13 +305,12 @@ export function useSftpFollowTerminalCwd({
       currentPath: connection?.currentPath,
       connectionId: connection?.id,
       hasActiveWork,
-      isConnected: Boolean(connection && !connection.isLocal && connection.status === "connected"),
+      isConnected: Boolean(connection && connection.status === "connected"),
       blockedFollow: blockedFollowRef.current,
       handledFollow: handledFollowRef.current,
     })) {
       if (
         connection?.id
-        && !connection.isLocal
         && connection.status === "connected"
         && connection.currentPath === terminalCwd
       ) {
