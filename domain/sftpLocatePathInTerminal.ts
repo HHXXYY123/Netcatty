@@ -11,6 +11,17 @@ type LocateSftpPathInTerminalContext = Pick<
   trusted: boolean;
 };
 
+/**
+ * Prefer the SFTP-reusable SSH session id when present; otherwise use the
+ * focused terminal (mosh/et/local) so locate is not stuck behind connection reuse.
+ */
+export function resolveLocateSftpPathSessionId(options: {
+  activeSessionId?: string | null;
+  focusedSessionId?: string | null;
+}): string | null {
+  return options.activeSessionId ?? options.focusedSessionId ?? null;
+}
+
 export function canLocateSftpPathInTerminal(
   options: Pick<
     LocateSftpPathInTerminalContext,
@@ -65,5 +76,13 @@ export function resolveLocateSftpPathInTerminal(
   if (!canLocateSftpPathInTerminal(options) || !options.sessionId) return null;
   const intent = resolveInteractiveTerminalCdIntent(options.path, options.shellType ?? undefined);
   if (!intent) return null;
-  return { sessionId: options.sessionId, data: `${intent.command}\r` };
+  return { sessionId: options.sessionId, data: `${intent.command}
+` };
+}
+
+/** Session write payload for locating the SFTP path in the linked terminal (legacy alias). */
+export function resolveLocateSftpPathInTerminalAction(
+  options: LocateSftpPathInTerminalContext,
+): { sessionId: string; data: string } | null {
+  return resolveLocateSftpPathInTerminal(options);
 }
