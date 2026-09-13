@@ -366,10 +366,18 @@ export function resolveInheritedCwdIntent(options: {
   const protocol = options.session.protocol ?? "ssh";
   const shellType = options.session.shellType;
   
-  // For SSH sessions, never send Windows-style paths (C:\...) — those paths came from
-  // a local shell's OSC 7 and should not be injected into a remote POSIX shell.
+  // For SSH/remote sessions, reject Windows-style paths (C:\...)
+  // Those paths came from a local shell's OSC 7 and should not be injected into a remote POSIX shell.
+  // Only allow Windows paths for local PowerShell/cmd sessions.
   if (protocol === "ssh" || protocol === undefined) {
     if (/^[A-Za-z]:/.test(cwd)) {
+      return null;
+    }
+  }
+  
+  // Even for local sessions, only accept Windows paths when shellType is explicitly PowerShell or cmd
+  if (protocol === "local" && /^[A-Za-z]:/.test(cwd)) {
+    if (shellType !== "powershell" && shellType !== "cmd") {
       return null;
     }
   }

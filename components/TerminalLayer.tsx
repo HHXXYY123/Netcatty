@@ -457,6 +457,8 @@ const TerminalLayerInner: React.FC<TerminalLayerProps> = ({
     const session = sessionsRef.current.find(s => s.id === sessionId);
     if (!session) return;
     const proto = session.protocol;
+    // Only sessions explicitly marked as 'local' are local shells.
+    // Restored remote sessions may have protocol=undefined and default to SSH in resolveTerminalSessionHost.
     const isLocalShell = proto === 'local';
     const sftpAvailable = proto === 'ssh' || proto === 'mosh' || isLocalShell;
     const tabId = session.workspaceId || sessionId;
