@@ -209,11 +209,15 @@ module.exports = {
             }
         ],
         category: 'public.app-category.developer-tools',
-        hardenedRuntime: true,
-        // Only notarize when code signing is available (CSC_LINK is set)
-        notarize: process.env.CSC_LINK ? true : false,
-        entitlements: 'electron/entitlements.mac.plist',
-        entitlementsInherit: 'electron/entitlements.mac.plist',
+        // Skip code signing and notarization when no certificate is available
+        ...(process.env.CSC_LINK ? {
+            hardenedRuntime: true,
+            notarize: true,
+            entitlements: 'electron/entitlements.mac.plist',
+            entitlementsInherit: 'electron/entitlements.mac.plist',
+        } : {
+            identity: null,
+        }),
         extendInfo: {
             NSCameraUsageDescription: 'Netcatty may use the camera for video calls',
             NSMicrophoneUsageDescription: 'Netcatty may use the microphone for audio',
