@@ -1597,9 +1597,10 @@ const SftpSidePanelInteractiveBody: React.FC<SftpSidePanelInteractiveBodyProps> 
   }, [sftp.leftPane.connection?.id]);
 
   const followTerminalCwdHost = useMemo(() => {
-    if (sftp.leftPane.connection?.isLocal) return null;
+    // For local connections, we still need a host object for protocol checks
+    // Use displayHost which contains the session info including shell type
     return displayHost;
-  }, [displayHost, sftp.leftPane.connection?.isLocal]);
+  }, [displayHost]);
 
   const effectiveFollowTerminalCwd = resolveHostFollowTerminalCwd(
     followTerminalCwdHost?.sftpFollowTerminalCwd,
@@ -1607,20 +1608,17 @@ const SftpSidePanelInteractiveBody: React.FC<SftpSidePanelInteractiveBodyProps> 
   );
 
   const canFollowTerminalCwd = useMemo(() => {
-    if (!onGetTerminalCwd || !followTerminalCwdHost) return false;
+    if (!onGetTerminalCwd) return false;
+    // Local connections always support follow for all shell types
+    if (sftp.leftPane.connection?.isLocal) return true;
+    // Remote connections need a valid host
+    if (!followTerminalCwdHost) return false;
     const proto = followTerminalCwdHost.protocol;
     // Serial connections don't support SFTP at all
     if (proto === "serial") return false;
     if (followTerminalCwdHost.id?.startsWith("serial-")) return false;
-    // Local connections support follow for POSIX shells (bash/zsh/fish), but not cmd/powershell
-    if (proto === "local" || followTerminalCwdHost.id?.startsWith("local-")) {
-      const session = sessions.find(s => s.id === (focusedSessionId ?? activeSessionId));
-      const shellType = session?.shellType;
-      if (shellType === "powershell" || shellType === "cmd") return false;
-      // Allow POSIX shells (bash/zsh/fish) and unknown shells (assume POSIX)
-    }
     return true;
-  }, [followTerminalCwdHost, onGetTerminalCwd, sessions, focusedSessionId, activeSessionId]);
+  }, [followTerminalCwdHost, onGetTerminalCwd, sftp.leftPane.connection?.isLocal]);
 
   const hasActiveWork = showTextEditor || !!permissionsState || showFileOpenerDialog
     || (sftp.activeFileWatchCountRef?.current ?? 0) > 0
@@ -1749,7 +1747,9 @@ const SftpSidePanelInteractiveBody: React.FC<SftpSidePanelInteractiveBodyProps> 
     // Never inject cd into a password/sudo prompt (same guard as snippets/broadcast).
     if (isTerminalSensitiveInputActive(action.sessionId)) return;
     // Only submit at an idle shell prompt -- never append into typed input or a TUI.
-    if (!isTerminalReadyForCommandInjection(action.sessionId)) return;
+    // For local shells, relax this check since prompt detection may not be reliable
+    const isLocal = connection?.isLocal ?? false;
+    if (!isLocal && !isTerminalReadyForCommandInjection(action.sessionId)) return;
     terminalBackend.writeToSession(action.sessionId, action.data, { automated: true });
     scheduleDeferredTerminalFocus(onRequestTerminalFocus);
   }, [
