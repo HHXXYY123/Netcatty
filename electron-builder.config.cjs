@@ -210,7 +210,8 @@ module.exports = {
         ],
         category: 'public.app-category.developer-tools',
         hardenedRuntime: true,
-        notarize: true,
+        // Only notarize when code signing is available (CSC_LINK is set)
+        notarize: process.env.CSC_LINK ? true : false,
         entitlements: 'electron/entitlements.mac.plist',
         entitlementsInherit: 'electron/entitlements.mac.plist',
         extendInfo: {
