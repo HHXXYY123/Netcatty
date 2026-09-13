@@ -1597,9 +1597,8 @@ const SftpSidePanelInteractiveBody: React.FC<SftpSidePanelInteractiveBodyProps> 
   }, [sftp.leftPane.connection?.id]);
 
   const followTerminalCwdHost = useMemo(() => {
-    if (sftp.leftPane.connection?.isLocal) return null;
     return displayHost;
-  }, [displayHost, sftp.leftPane.connection?.isLocal]);
+  }, [displayHost]);
 
   const effectiveFollowTerminalCwd = resolveHostFollowTerminalCwd(
     followTerminalCwdHost?.sftpFollowTerminalCwd,
@@ -1609,16 +1608,20 @@ const SftpSidePanelInteractiveBody: React.FC<SftpSidePanelInteractiveBodyProps> 
   const canFollowTerminalCwd = useMemo(() => {
     if (!onGetTerminalCwd || !followTerminalCwdHost) return false;
     const proto = followTerminalCwdHost.protocol;
+    const isLocal = proto === "local" || followTerminalCwdHost.id?.startsWith("local-");
+    
     // Serial connections don't support SFTP at all
     if (proto === "serial") return false;
     if (followTerminalCwdHost.id?.startsWith("serial-")) return false;
+    
     // Local connections support follow for POSIX shells (bash/zsh/fish), but not cmd/powershell
-    if (proto === "local" || followTerminalCwdHost.id?.startsWith("local-")) {
+    if (isLocal) {
       const session = sessions.find(s => s.id === (focusedSessionId ?? activeSessionId));
       const shellType = session?.shellType;
+      // Block cmd/powershell, allow POSIX shells (bash/zsh/fish) and unknown shells (assume POSIX)
       if (shellType === "powershell" || shellType === "cmd") return false;
-      // Allow POSIX shells (bash/zsh/fish) and unknown shells (assume POSIX)
     }
+    
     return true;
   }, [followTerminalCwdHost, onGetTerminalCwd, sessions, focusedSessionId, activeSessionId]);
 
