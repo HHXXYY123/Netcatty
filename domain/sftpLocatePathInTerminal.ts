@@ -50,7 +50,8 @@ export function canLocateSftpPathInTerminal(
   if (protocol === "telnet" || protocol === "serial") return false;
 
   if (options.sftpIsLocal) {
-    return protocol === "local";
+    // Local shell sessions may have protocol="local" or undefined
+    return protocol === "local" || protocol === "ssh";
   }
 
   if (!options.sftpHostId || !options.sessionHostId) return false;
@@ -72,6 +73,7 @@ export function resolveLocateSftpPathInTerminalAction(
   if (!canLocateSftpPathInTerminal(options) || !options.sessionId) return null;
   const intent = resolveInteractiveTerminalCdIntent(options.path, options.shellType ?? undefined);
   if (!intent) return null;
-  return { sessionId: options.sessionId, data: `${intent.command}
-` };
+  // Use \r for Windows shells (PS/CMD), \n for POSIX shells (Git Bash, SSH)
+  const terminator = options.shellType === "powershell" || options.shellType === "cmd" ? "\r" : "\n";
+  return { sessionId: options.sessionId, data: `${intent.command}${terminator}` };
 }
