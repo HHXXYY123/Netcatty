@@ -29,7 +29,6 @@ import {
   useReportSftpTransferOwnerActivity,
 } from "../application/state/sftp/useSftpTransferLifecycle";
 import { useSftpFollowTerminalCwd } from "../application/state/sftp/useSftpFollowTerminalCwd";
-import { useLocalShellFollowCwd } from "../application/state/sftp/useLocalShellFollowCwd";
 import { usePendingSftpUploadRebind } from "../application/state/sftp/usePendingSftpUploadRebind";
 import { registerEditorSftpWriterScoped } from "../application/state/editorSftpBridge";
 import { registerEditorSftpOwnerResolver } from "../application/state/editorSftpOwnerRegistry";
@@ -1649,20 +1648,6 @@ const SftpSidePanelInteractiveBody: React.FC<SftpSidePanelInteractiveBodyProps> 
     onPendingFollowOverride: setPendingFollowOverride,
     onSftpFollowTerminalCwdChange,
     sftpRef,
-  });
-
-  // Local shell follow cwd - separate from remote SSH logic
-  useLocalShellFollowCwd({
-    activeTerminalCwd,
-    connectionId,
-    connectionPath,
-    connectionIsLocal: sftp.leftPane.connection?.isLocal,
-    isVisible,
-    hasActiveWork,
-    followEnabled: effectiveFollowTerminalCwd,
-    onNavigate: async (path: string) => {
-      await sftpRef.current.navigateTo("left", path, { force: true });
-    },
   });
 
   // Match toolbar path semantics: keep the last confirmed path while navigateTo

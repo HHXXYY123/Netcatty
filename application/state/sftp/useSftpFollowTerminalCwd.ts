@@ -81,7 +81,7 @@ const runInitialFollowTerminalCwdSync = async ({
   if (!cwd || !isEligible()) return false;
 
   const live = getConnection();
-  if (!live || live.id !== expectedConnectionId || live.status !== "connected" || live.isLocal) {
+  if (!live || live.id !== expectedConnectionId || live.status !== "connected") {
     return false;
   }
 
@@ -270,7 +270,12 @@ export function useSftpFollowTerminalCwd({
     if (!onGetTerminalCwd || !effectiveFollowTerminalCwd || !canFollowTerminalCwd) return;
 
     const liveConnectionId = sftpRef.current.leftPane.connection?.id ?? null;
-    if (!liveConnectionId || initialFollowReadyConnectionRef.current !== liveConnectionId) return;
+    if (!liveConnectionId) return;
+    
+    // Allow follow even if initialFollowReadyConnectionRef is not set yet
+    // This enables local shell follow without waiting for initial sync
+    const connection = sftpRef.current.leftPane.connection;
+    if (!connection || connection.status !== "connected") return;
 
     const syncGeneration = followSyncGenerationRef.current;
     const expectedSessionId = focusedSessionIdRef.current ?? activeSessionIdRef.current ?? null;
@@ -297,7 +302,7 @@ export function useSftpFollowTerminalCwd({
       paneConnectionId: sftpRef.current.leftPane.connection?.id ?? null,
     })) return;
 
-    const connection = sftpRef.current.leftPane.connection;
+    // connection already defined above
     if (!shouldFollowTerminalCwdNavigate({
       followEnabled: effectiveFollowTerminalCwdRef.current,
       isVisible,
@@ -305,13 +310,12 @@ export function useSftpFollowTerminalCwd({
       currentPath: connection?.currentPath,
       connectionId: connection?.id,
       hasActiveWork,
-      isConnected: Boolean(connection && !connection.isLocal && connection.status === "connected"),
+      isConnected: Boolean(connection && connection.status === "connected"),
       blockedFollow: blockedFollowRef.current,
       handledFollow: handledFollowRef.current,
     })) {
       if (
         connection?.id
-        && !connection.isLocal
         && connection.status === "connected"
         && connection.currentPath === terminalCwd
       ) {
@@ -447,7 +451,7 @@ export function useSftpFollowTerminalCwd({
   useEffect(() => {
     if (!effectiveFollowTerminalCwd || !canFollowTerminalCwd || !isVisible || hasActiveWork) return;
     const connection = sftpRef.current.leftPane.connection;
-    if (!connection || connection.isLocal || connection.status !== "connected" || !connection.id) return;
+    if (!connection || connection.status !== "connected" || !connection.id) return;
     if (initialFollowSyncedConnRef.current === connection.id) return;
     if (initialFollowRetryRef.current.connectionId !== connection.id) {
       initialFollowRetryRef.current = { connectionId: connection.id, attempts: 0 };
@@ -477,7 +481,6 @@ export function useSftpFollowTerminalCwd({
         navigationStarted
         || (sftpRef.current.leftPane.connection?.currentPath ?? null) === expectedPanePath
       )
-      && !sftpRef.current.leftPane.connection?.isLocal
       && sftpRef.current.leftPane.connection?.status === "connected"
     );
     const followStillEligible = () => (

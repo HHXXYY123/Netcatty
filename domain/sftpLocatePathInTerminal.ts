@@ -50,8 +50,9 @@ export function canLocateSftpPathInTerminal(
   if (protocol === "telnet" || protocol === "serial") return false;
 
   if (options.sftpIsLocal) {
-    // Local shell sessions may have protocol="local" or undefined
-    return protocol === "local" || protocol === "ssh";
+    // Local shell sessions: allow any protocol since local connections
+    // might not have protocol set, or might inherit "ssh" as default
+    return true;
   }
 
   if (!options.sftpHostId || !options.sessionHostId) return false;
