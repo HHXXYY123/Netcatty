@@ -46,6 +46,8 @@ import {
   STORAGE_KEY_SHOW_HOST_TREE_SIDEBAR,
   STORAGE_KEY_TERMINAL_SIDE_PANEL_AUTO_OPEN,
   STORAGE_KEY_TERMINAL_SIDE_PANEL_AUTO_OPEN_TAB,
+  STORAGE_KEY_LOCAL_SHELL_SIDE_PANEL_AUTO_OPEN,
+  STORAGE_KEY_LOCAL_SHELL_SIDE_PANEL_AUTO_OPEN_TAB,
   STORAGE_KEY_WINDOW_OPACITY,
   STORAGE_KEY_APP_ICON_VARIANT,
   STORAGE_KEY_HTTP_NETWORK_PROXY,
@@ -103,6 +105,8 @@ interface UseSettingsIpcSyncParams {
   setShowHostTreeSidebarState: Dispatch<SetStateAction<boolean>>;
   setTerminalSidePanelAutoOpenState: Dispatch<SetStateAction<boolean>>;
   setTerminalSidePanelAutoOpenTabState: Dispatch<SetStateAction<TerminalSidePanelAutoOpenTab>>;
+  setLocalShellSidePanelAutoOpenState: Dispatch<SetStateAction<boolean>>;
+  setLocalShellSidePanelAutoOpenTabState: Dispatch<SetStateAction<TerminalSidePanelAutoOpenTab>>;
   setDisableTerminalFontZoomState: Dispatch<SetStateAction<boolean>>;
   setRestorePreviousSessionState: Dispatch<SetStateAction<boolean>>;
   setRestoreTerminalCwdState: Dispatch<SetStateAction<boolean>>;
@@ -149,6 +153,8 @@ export function useSettingsIpcSync({
   setShowHostTreeSidebarState,
   setTerminalSidePanelAutoOpenState,
   setTerminalSidePanelAutoOpenTabState,
+  setLocalShellSidePanelAutoOpenState,
+  setLocalShellSidePanelAutoOpenTabState,
   setDisableTerminalFontZoomState,
   setRestorePreviousSessionState,
   setRestoreTerminalCwdState,
@@ -309,6 +315,12 @@ export function useSettingsIpcSync({
       if (key === STORAGE_KEY_TERMINAL_SIDE_PANEL_AUTO_OPEN_TAB && isTerminalSidePanelAutoOpenTab(value)) {
         setTerminalSidePanelAutoOpenTabState((prev) => (prev === value ? prev : value));
       }
+      if (key === STORAGE_KEY_LOCAL_SHELL_SIDE_PANEL_AUTO_OPEN && typeof value === 'boolean') {
+        setLocalShellSidePanelAutoOpenState((prev) => (prev === value ? prev : value));
+      }
+      if (key === STORAGE_KEY_LOCAL_SHELL_SIDE_PANEL_AUTO_OPEN_TAB && isTerminalSidePanelAutoOpenTab(value)) {
+        setLocalShellSidePanelAutoOpenTabState((prev) => (prev === value ? prev : value));
+      }
       if (key === STORAGE_KEY_DISABLE_TERMINAL_FONT_ZOOM && typeof value === 'boolean') {
         setDisableTerminalFontZoomState((prev) => (prev === value ? prev : value));
       }
@@ -363,6 +375,8 @@ export function useSettingsIpcSync({
     setShowHostTreeSidebarState,
     setTerminalSidePanelAutoOpenState,
     setTerminalSidePanelAutoOpenTabState,
+    setLocalShellSidePanelAutoOpenState,
+    setLocalShellSidePanelAutoOpenTabState,
     setDisableTerminalFontZoomState,
     setRestorePreviousSessionState,
     setRestoreTerminalCwdState,

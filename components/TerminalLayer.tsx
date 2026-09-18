@@ -104,7 +104,7 @@ import {
 } from './terminalLayer/terminalLayerSessionRouting';
 import {
   DEFAULT_TERMINAL_SIDE_PANEL_AUTO_OPEN_TAB,
-  resolveTerminalSidePanelAutoOpen,
+  resolveSessionSidePanelAutoOpen,
 } from '../domain/terminalSidePanelAutoOpen';
 import { shouldProbeCommandCwd } from './terminalLayer/commandCwdProbe';
 import {
@@ -456,20 +456,19 @@ const TerminalLayerInner: React.FC<TerminalLayerProps> = ({
 
     const session = sessionsRef.current.find(s => s.id === sessionId);
     if (!session) return;
-    const proto = session.protocol;
-    const isLocalShell = proto === 'local' || proto === undefined;
-    const sftpAvailable = proto === 'ssh' || proto === 'mosh' || isLocalShell;
+    const proto = session.protocol ?? 'ssh';
     const tabId = session.workspaceId || sessionId;
 
     if (sidePanelOpenTabsRef.current.has(tabId)) return;
 
-    const sessionAutoOpenTarget = session.autoOpenSidePanel === 'sftp' && sftpAvailable ? 'sftp' : null;
-    const autoOpenTarget = sessionAutoOpenTarget ?? resolveTerminalSidePanelAutoOpen({
-      enabled: isLocalShell ? localShellSidePanelAutoOpenRef.current : terminalSidePanelAutoOpenRef.current,
-      selectedTab: isLocalShell ? localShellSidePanelAutoOpenTabRef.current : terminalSidePanelAutoOpenTabRef.current,
-      sftpAvailable,
+    const targetPanel = resolveSessionSidePanelAutoOpen({
+      session,
+      terminalEnabled: terminalSidePanelAutoOpenRef.current,
+      terminalTab: terminalSidePanelAutoOpenTabRef.current,
+      localEnabled: localShellSidePanelAutoOpenRef.current,
+      localTab: localShellSidePanelAutoOpenTabRef.current,
+      legacySftpEnabled: sftpAutoOpenSidebarRef.current,
     });
-    const targetPanel = autoOpenTarget ?? (sftpAutoOpenSidebarRef.current && sftpAvailable ? 'sftp' : null);
     if (!targetPanel) return;
 
     lastSidePanelTabRef.current.set(tabId, targetPanel);

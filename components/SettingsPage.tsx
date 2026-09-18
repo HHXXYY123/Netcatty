@@ -135,6 +135,10 @@ type TerminalTabSettingsProps = Pick<
     | 'setTerminalSidePanelAutoOpen'
     | 'terminalSidePanelAutoOpenTab'
     | 'setTerminalSidePanelAutoOpenTab'
+    | 'localShellSidePanelAutoOpen'
+    | 'setLocalShellSidePanelAutoOpen'
+    | 'localShellSidePanelAutoOpenTab'
+    | 'setLocalShellSidePanelAutoOpenTab'
     | 'workspaceFocusStyle'
     | 'setWorkspaceFocusStyle'
 >;

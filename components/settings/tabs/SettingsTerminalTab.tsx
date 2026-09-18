@@ -58,9 +58,9 @@ const FONT_WEIGHT_OPTIONS = [
 function SettingsTerminalTab(props: {
   terminalThemeId: string;
   setTerminalThemeId: (id: string) => void;
-  resolvedTheme: 'light' | 'dark';
+  resolvedTheme: "dark" | "light";
   followAppTerminalTheme: boolean;
-  setFollowAppTerminalTheme: (follow: boolean) => void;
+  setFollowAppTerminalTheme: (value: boolean) => void;
   terminalThemeDarkId: string;
   setTerminalThemeDarkId: (id: string) => void;
   terminalThemeLightId: string;
