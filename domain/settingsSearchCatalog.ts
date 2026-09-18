@@ -159,6 +159,12 @@ export const SETTINGS_SEARCH_CATALOG: readonly SettingsSearchEntry[] = [
     sectionKey: "settings.vault.title",
   },
   {
+    id: "appearance-tab-bar-position",
+    tab: "appearance",
+    labelKey: "settings.appearance.tabBarPosition",
+    sectionKey: "settings.vault.title",
+  },
+  {
     id: "appearance-vault-show-sftp-tab",
     tab: "appearance",
     labelKey: "settings.vault.showSftpTab",
@@ -377,6 +383,14 @@ export const SETTINGS_SEARCH_CATALOG: readonly SettingsSearchEntry[] = [
     labelKey: "settings.terminal.behavior.clearWipesScrollback",
     descriptionKey: "settings.terminal.behavior.clearWipesScrollback.desc",
     sectionKey: "settings.terminal.section.behavior",
+  },
+  {
+    id: "terminal-tab-double-click",
+    tab: "terminal",
+    labelKey: "settings.terminal.behavior.tabDoubleClick",
+    descriptionKey: "settings.terminal.behavior.tabDoubleClick.desc",
+    sectionKey: "settings.terminal.section.behavior",
+    keywords: ["tab", "double click", "复制会话", "双击"],
   },
   {
     id: "terminal-dynamic-tab-title",

@@ -11,7 +11,7 @@ import {
   appendHostFromWorkspaceDrop,
   resolveFocusSidebarDragKind,
 } from '../domain/focusSidebarHostDrop';
-import type { DynamicTabTitleMode, KeyBinding } from '../domain/models';
+import type { DynamicTabTitleMode, KeyBinding, TerminalTabDoubleClickBehavior } from '../domain/models';
 
 import { getTopTabInsertionTarget, getWorkspaceSessionDragId, hasWorkspaceSessionDrag } from '../application/state/terminalDragData';
 import {
@@ -168,6 +168,7 @@ interface TopTabsProps {
   showHostTreeSidebar: boolean;
   switchTabKeyBinding: Pick<KeyBinding, 'mac' | 'pc'> | null;
   dynamicTabTitleMode?: DynamicTabTitleMode;
+  tabDoubleClickBehavior: TerminalTabDoubleClickBehavior;
   editorTabs: readonly EditorTabChrome[];
   pluginViewTabs: readonly PluginViewTab[];
   onClosePluginViewTab: (tabId: string) => void;
@@ -217,6 +218,7 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
   showHostTreeSidebar,
   switchTabKeyBinding,
   dynamicTabTitleMode,
+  tabDoubleClickBehavior,
   editorTabs,
   pluginViewTabs,
   onClosePluginViewTab,
@@ -226,6 +228,7 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
   const { t } = useI18n();
   const { maximize, isFullscreen, onFullscreenChanged } = useWindowControls();
   const {
+    tabBarPosition,
     hotkeyScheme,
     showTabNumberBadges,
     shellOnlyTabNumberShortcuts,
@@ -267,7 +270,8 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
   const [hostTreeChromeReady, setHostTreeChromeReady] = useState(false);
   const [hostTreeGutterExiting, setHostTreeGutterExiting] = useState(false);
   const [rootTabsCompact, setRootTabsCompact] = useState(false);
-  const showWindowControls = !isMacClient;
+  const tabsAtBottom = tabBarPosition === 'bottom';
+  const showWindowControls = !isMacClient && !tabsAtBottom;
 
   // Tab reorder drag state
   const [dropIndicator, setDropIndicator] = useState<{ tabId: string; position: 'before' | 'after' } | null>(null);
@@ -899,6 +903,7 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
             onEditHost={onEditHost}
             renderBulkCloseItems={renderBulkCloseItems}
             dynamicTabTitleMode={dynamicTabTitleMode}
+            tabDoubleClickBehavior={tabDoubleClickBehavior}
             t={t}
             tabAnimationClass={getTabAnimationClass(session.id)}
             shortcutNumber={tabShortcutNumbers?.get(session.id)}
@@ -994,12 +999,24 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
   }, [isMacClient, maximize]);
 
   return (
+    <>
+        <div
+          data-tab-window-titlebar
+          data-section="top-tabs"
+          className={cn("h-9 shrink-0 items-end justify-end bg-secondary app-drag", tabsAtBottom ? "flex" : "hidden")}
+          style={dragRegionNoSelect}
+          onDoubleClick={handleTitleBarDoubleClick}
+        >
+          {!isMacClient && <WindowControls />}
+        </div>
     <div
       data-top-tabs-root
+      data-position={tabBarPosition}
       data-section="top-tabs"
-      className="relative w-full bg-secondary app-drag"
+      className="relative w-full shrink-0 bg-secondary app-drag"
       style={{
         ...dragRegionNoSelect,
+        order: tabsAtBottom ? 2 : undefined,
         backgroundColor: 'var(--top-tabs-bg, hsl(var(--secondary)))',
         color: 'var(--top-tabs-fg, hsl(var(--foreground)))',
       }}
@@ -1010,12 +1027,12 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
         updateScrollState={updateScrollState}
       />
       {/* Always-on drag stripe so the window can be moved even when tabs fill the bar */}
-      <div className="absolute inset-x-0 top-0 h-1 app-drag pointer-events-auto z-10" style={dragRegionStyle} aria-hidden />
+      <div className={cn("absolute inset-x-0 h-1 app-drag pointer-events-auto z-10", tabsAtBottom ? "bottom-0" : "top-0")} style={dragRegionStyle} aria-hidden />
       <div
-        className="h-9 flex items-end gap-0 app-drag overflow-visible"
+        className={cn("h-9 flex gap-0 app-drag overflow-visible", tabsAtBottom ? "items-start" : "items-end")}
         style={{
           ...dragRegionStyle,
-          paddingLeft: isMacClient && !isWindowFullscreen ? 76 : 12,
+          paddingLeft: isMacClient && !isWindowFullscreen && !tabsAtBottom ? 76 : 12,
           paddingRight: showWindowControls ? 0 : 12,
         }}
       >
@@ -1063,7 +1080,7 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
           {hasHostTreeToggleSurface && (
             <div
               ref={hostTreeToggleSlotRef}
-              className="top-tab-host-tree-toggle-slot mb-0 flex-shrink-0 self-end app-no-drag"
+              className={cn("top-tab-host-tree-toggle-slot mb-0 flex-shrink-0 app-no-drag", tabsAtBottom ? "self-start" : "self-end")}
               data-section="top-tabs-host-tree-toggle"
               data-visible={effectiveShowHostTreeToggle ? 'true' : 'false'}
               style={noDragRegionStyle}
@@ -1173,7 +1190,7 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 flex-shrink-0 app-no-drag self-end rounded-none"
+                  className={cn("h-7 w-7 flex-shrink-0 app-no-drag rounded-none", tabsAtBottom ? "self-start" : "self-end")}
                   style={{ color: 'var(--top-tabs-muted, hsl(var(--muted-foreground)))' }}
                   onClick={onOpenQuickSwitcher}
                 >
@@ -1187,7 +1204,7 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
 
         {/* Fixed right controls — utility icons + window controls share one h-7 row */}
         <div
-          className="flex-shrink-0 flex items-center gap-0.5 app-drag self-end h-7 overflow-visible"
+          className={cn("flex-shrink-0 flex items-center gap-0.5 app-drag h-7 overflow-visible", tabsAtBottom ? "self-start" : "self-end")}
           style={dragRegionStyle}
           data-section="top-tabs-toolbar-actions"
         >
@@ -1262,6 +1279,7 @@ const TopTabsInner: React.FC<TopTabsProps> = ({
         )}
       </div>
     </div>
+    </>
   );
 };
 
@@ -1305,6 +1323,7 @@ export const topTabsAreEqual = (prev: TopTabsProps, next: TopTabsProps): boolean
     prev.showHostTreeSidebar === next.showHostTreeSidebar &&
     prev.switchTabKeyBinding === next.switchTabKeyBinding &&
     prev.dynamicTabTitleMode === next.dynamicTabTitleMode &&
+    prev.tabDoubleClickBehavior === next.tabDoubleClickBehavior &&
     prev.hostById === next.hostById
   );
 };

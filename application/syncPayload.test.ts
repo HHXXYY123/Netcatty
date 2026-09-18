@@ -2000,3 +2000,107 @@ test("missing local shell settings and invalid tabs preserve existing settings",
   localStorage.setItem(storageKeys.STORAGE_KEY_LOCAL_SHELL_SIDE_PANEL_AUTO_OPEN_TAB, "invalid");
   assert.equal((await buildSyncPayload(vault())).settings?.localShellSidePanelAutoOpenTab, undefined);
 });
+
+test("tab bar position survives settings export and import, with a safe fallback", async () => {
+  localStorage.clear();
+  localStorage.setItem(storageKeys.STORAGE_KEY_TAB_BAR_POSITION, "bottom");
+  const payload = buildSyncPayload(vault([]));
+  assert.equal(payload.settings?.tabBarPosition, "bottom");
+  localStorage.removeItem(storageKeys.STORAGE_KEY_TAB_BAR_POSITION);
+  await applySyncPayload(payload, { importVaultData: () => {} });
+  assert.equal(localStorage.getItem(storageKeys.STORAGE_KEY_TAB_BAR_POSITION), "bottom");
+
+  const invalid = { ...payload, settings: { tabBarPosition: "left" } } as unknown as SyncPayload;
+  await applySyncPayload(invalid, { importVaultData: () => {} });
+  assert.equal(localStorage.getItem(storageKeys.STORAGE_KEY_TAB_BAR_POSITION), "top");
+
+  localStorage.setItem(storageKeys.STORAGE_KEY_TAB_BAR_POSITION, "bottom");
+  await applySyncPayload({ ...payload, settings: {} }, { importVaultData: () => {} });
+  assert.equal(localStorage.getItem(storageKeys.STORAGE_KEY_TAB_BAR_POSITION), "bottom");
+});
+for (const enabled of [true, false]) {
+  test(`right-click long press preference survives sync (${enabled})`, async () => {
+    localStorage.setItem(storageKeys.STORAGE_KEY_TERM_SETTINGS,
+      JSON.stringify({ rightClickLongPressMenu: enabled }));
+    const payload = buildSyncPayload(vault());
+    assert.equal(payload.settings?.terminalSettings?.rightClickLongPressMenu, enabled);
+    localStorage.setItem(storageKeys.STORAGE_KEY_TERM_SETTINGS,
+      JSON.stringify({ rightClickLongPressMenu: !enabled }));
+    await applySyncPayload(payload, { importVaultData: () => {} });
+    const restored = JSON.parse(localStorage.getItem(storageKeys.STORAGE_KEY_TERM_SETTINGS)!);
+    assert.equal(restored.rightClickLongPressMenu, enabled);
+  });
+}
+test('custom provider headers use portable cloud secrets and local encryption with legacy preservation', async () => {
+  localStorage.clear();
+  const sealed = `enc:v1:${Buffer.concat([Buffer.from('v10'), Buffer.alloc(32, 2)]).toString('base64')}`;
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    netcatty: {
+      credentialsEncrypt: async () => sealed,
+      credentialsDecrypt: async (value: string) => value === sealed ? 'tenant-secret' : value,
+    },
+    dispatchEvent: () => true,
+  } });
+  localStorage.setItem(storageKeys.STORAGE_KEY_AI_PROVIDERS, JSON.stringify([{
+    id: 'custom-headers', providerId: 'custom', enabled: true, customHeaders: { 'X-Tenant': sealed },
+  }]));
+  const plainSettings = buildSyncPayload(vault([]));
+  assert.equal(plainSettings.settings?.ai?.providers?.[0]?.customHeaders, undefined);
+  const cloud = await buildCloudSyncPayload(vault([]));
+  assert.deepEqual(cloud.settings?.ai?.providers?.[0]?.customHeaders, { 'X-Tenant': 'tenant-secret' });
+  await applySyncPayload(cloud, { importVaultData: () => {} });
+  const read = () => JSON.parse(localStorage.getItem(storageKeys.STORAGE_KEY_AI_PROVIDERS)!)[0];
+  assert.deepEqual(read().customHeaders, { 'X-Tenant': sealed });
+  await applySyncPayload(plainSettings, { importVaultData: () => {} });
+  assert.deepEqual(read().customHeaders, { 'X-Tenant': sealed });
+  cloud.settings!.ai!.providers![0].customHeaders = {};
+  await applySyncPayload(cloud, { importVaultData: () => {} });
+  assert.deepEqual(read().customHeaders, {});
+});
+
+for (const localRestore of [false, true]) {
+  test(`header encryption failure leaves vault and settings untouched (${localRestore ? 'restore' : 'sync'})`, async () => {
+    localStorage.clear();
+    localStorage.setItem(storageKeys.STORAGE_KEY_THEME, 'light');
+    localStorage.setItem(storageKeys.STORAGE_KEY_AI_PROVIDERS, '[]');
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+      netcatty: { credentialsEncrypt: async () => { throw new Error('keychain locked'); } },
+      dispatchEvent: () => true,
+    } });
+    const payload: SyncPayload = { ...vault([]), syncedAt: 1, settings: {
+      theme: 'dark', ai: { providers: [{ id: 'custom', customHeaders: { Authorization: 'secret' } }] },
+    } };
+    const original = JSON.stringify(payload);
+    let imports = 0;
+    let completed = 0;
+    let commits = 0;
+    const importers = { importVaultData: () => { imports++; }, onSettingsApplied: () => { completed++; } };
+    await assert.rejects(localRestore
+      ? applyLocalVaultPayload(payload, importers, { prepareConvergentRestore: async () => async () => { commits++; } })
+      : applySyncPayload(payload, importers));
+    assert.equal(imports, 0);
+    assert.equal(completed, 0);
+    assert.equal(commits, 0);
+    assert.equal(localStorage.getItem(storageKeys.STORAGE_KEY_THEME), 'light');
+    assert.equal(localStorage.getItem(storageKeys.STORAGE_KEY_AI_PROVIDERS), '[]');
+    assert.equal(JSON.stringify(payload), original);
+  });
+}
+
+test('sync prepares header encryption once before importing and leaves input unchanged', async () => {
+  localStorage.clear();
+  const sealed = `enc:v1:${Buffer.concat([Buffer.from('v10'), Buffer.alloc(32, 4)]).toString('base64')}`;
+  const events: string[] = [];
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    netcatty: { credentialsEncrypt: async () => { events.push('encrypt'); return sealed; } },
+    dispatchEvent: () => true,
+  } });
+  const payload: SyncPayload = { ...vault([]), syncedAt: 1, settings: {
+    theme: 'dark', ai: { providers: [{ id: 'custom', customHeaders: { 'X-Tenant': 'secret' } }] },
+  } };
+  const original = JSON.stringify(payload);
+  await applySyncPayload(payload, { importVaultData: () => { events.push('import'); } });
+  assert.deepEqual(events, ['encrypt', 'import']);
+  assert.equal(JSON.stringify(payload), original);
+  assert.deepEqual(JSON.parse(localStorage.getItem(storageKeys.STORAGE_KEY_AI_PROVIDERS)!)[0].customHeaders, { 'X-Tenant': sealed });
+});

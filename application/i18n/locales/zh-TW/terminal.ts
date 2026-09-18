@@ -1,6 +1,8 @@
 import type { Messages } from '../types';
 
 export const zhTWTerminalMessages: Messages = {
+  'terminal.menu.saveScreen': '儲存目前畫面',
+  'terminal.saveScreen.failed': '儲存終端畫面失敗。',
   'terminal.sudoHint.pressEnter': '按 Enter 貼上已儲存的密碼',
   'terminal.passwordPicker.title': '已儲存的密碼',
   'terminal.passwordPicker.empty': '沒有已儲存的密碼',
@@ -289,6 +291,8 @@ export const zhTWTerminalMessages: Messages = {
   'settings.terminal.accessibility.minimumContrastRatio.desc': '調整顏色以滿足對比度要求 (1 = 停用, 21 = 最大)',
   'settings.terminal.behavior.rightClick': '右鍵行為',
   'settings.terminal.behavior.rightClick.desc': '在終端中右鍵時執行的操作',
+  'settings.terminal.behavior.rightClick.longPressMenu': '右鍵長按顯示選單',
+  'settings.terminal.behavior.rightClick.longPressMenu.desc': '右鍵設為貼上或選詞時，按住半秒開啟選單。不影響接管滑鼠的終端應用。',
   'settings.terminal.behavior.rightClick.fullscreenMenu': '在全螢幕應用中也顯示選單',
   'settings.terminal.behavior.rightClick.fullscreenMenu.desc':
     '即使 tmux、vim 等全螢幕應用接管了滑鼠，也顯示右鍵選單。關閉時右鍵會交給應用處理（Shift+右鍵仍可開啟選單）。',
@@ -343,6 +347,11 @@ export const zhTWTerminalMessages: Messages = {
   'settings.terminal.behavior.dynamicTabTitle.off': '關閉',
   'settings.terminal.behavior.dynamicTabTitle.agent': '僅 Agent',
   'settings.terminal.behavior.dynamicTabTitle.all': '全部工作階段',
+  'settings.terminal.behavior.tabDoubleClick': '分頁雙擊行為',
+  'settings.terminal.behavior.tabDoubleClick.desc': '選擇雙擊頂部終端分頁時要執行的動作。',
+  'settings.terminal.behavior.tabDoubleClick.duplicate': '複製工作階段（新連線）',
+  'settings.terminal.behavior.tabDoubleClick.copy': '複製分頁（重用連線）',
+  'settings.terminal.behavior.tabDoubleClick.disabled': '無動作',
   'settings.terminal.behavior.oscNotifications': 'OSC 桌面通知',
   'settings.terminal.behavior.oscNotifications.desc':
     '當程式發出 OSC 9、OSC 777 notify 或 kitty OSC 99 時顯示系統通知。Codex 等 Agent 會用它提示回合完成或等待核准。',

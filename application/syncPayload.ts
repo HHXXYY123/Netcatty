@@ -1,3 +1,5 @@
+import { normalizeTabBarPosition } from '../domain/tabBarPosition';
+import { decryptProviderHeaders, encryptProviderHeaders } from '../infrastructure/ai/providerHeaderCredentials';
 /**
  * Sync Payload Builders - Single source of truth for constructing and applying
  * the encrypted cloud-sync payload.
@@ -94,6 +96,7 @@ import {
   STORAGE_KEY_HOST_CLICK_BEHAVIOR,
   STORAGE_KEY_SHOW_ONLY_UNGROUPED_HOSTS_IN_ROOT,
   STORAGE_KEY_SHOW_SFTP_TAB,
+  STORAGE_KEY_TAB_BAR_POSITION,
   STORAGE_KEY_SHOW_HOST_TREE_SIDEBAR,
   STORAGE_KEY_SHELL_ONLY_TAB_NUMBER_SHORTCUTS,
   STORAGE_KEY_SHOW_TAB_NUMBER_BADGES,
@@ -261,11 +264,11 @@ const SYNCABLE_TERMINAL_KEYS = [
   'kittyKeyboardProtocolEnabled',
   'scrollOnInput', 'scrollOnOutput', 'scrollOnKeyPress', 'scrollOnPaste',
   'smoothScrolling',
-  'rightClickBehavior', 'showContextMenuOverFullscreenApps', 'middleClickBehavior', 'copyOnSelect', 'normalizeTextOnCopy', 'middleClickPaste', 'wordSeparators',
+  'rightClickBehavior', 'rightClickLongPressMenu', 'showContextMenuOverFullscreenApps', 'middleClickBehavior', 'copyOnSelect', 'normalizeTextOnCopy', 'middleClickPaste', 'wordSeparators',
   'linkModifier', 'keywordHighlightEnabled', 'keywordHighlightRules',
   'keepaliveInterval', 'keepaliveCountMax', 'disableBracketedPaste', 'clearWipesScrollback',
   'autoUploadClipboardImageOnPaste',
-  'preserveSelectionOnInput', 'forcePromptNewLine', 'osc52Clipboard', 'oscNotifications', 'dynamicTabTitleMode',
+  'preserveSelectionOnInput', 'forcePromptNewLine', 'osc52Clipboard', 'oscNotifications', 'dynamicTabTitleMode', 'tabDoubleClickBehavior',
   'autoCloseOnExit', 'disconnectedNoticeMode',
   'showHostInfoBar', 'hostInfoBarTitleMode', 'showServerStats',
   'serverStatsRefreshInterval',
@@ -319,6 +322,7 @@ export const SYNCABLE_SETTING_STORAGE_KEYS = [
   STORAGE_KEY_HOST_CLICK_BEHAVIOR,
   STORAGE_KEY_SHOW_ONLY_UNGROUPED_HOSTS_IN_ROOT,
   STORAGE_KEY_SHOW_SFTP_TAB,
+  STORAGE_KEY_TAB_BAR_POSITION,
   STORAGE_KEY_SHELL_ONLY_TAB_NUMBER_SHORTCUTS,
   STORAGE_KEY_SHOW_TAB_NUMBER_BADGES,
   STORAGE_KEY_WORKSPACE_FOCUS_STYLE,
@@ -403,13 +407,13 @@ const mergeAiProvidersPreservingLocalApiKeys = (
     if (typeof provider?.id === 'string') localById.set(provider.id, provider);
   }
   return incoming.map((provider) => {
-    if (provider.apiKey != null) return provider;
     const id = typeof provider.id === 'string' ? provider.id : undefined;
     const localProvider = id != null ? localById.get(id) : undefined;
-    if (localProvider && typeof localProvider.apiKey === 'string') {
-      return { ...provider, apiKey: localProvider.apiKey };
-    }
-    return provider;
+    return {
+      ...provider,
+      ...(provider.apiKey == null && typeof localProvider?.apiKey === 'string' ? { apiKey: localProvider.apiKey } : {}),
+      ...(provider.customHeaders == null && localProvider?.customHeaders != null ? { customHeaders: localProvider.customHeaders } : {}),
+    };
   });
 };
 
@@ -552,6 +556,8 @@ export function collectSyncableSettings(): SyncPayload['settings'] {
   }
   const showOnlyUngroupedHostsInRoot = localStorageAdapter.readBoolean(STORAGE_KEY_SHOW_ONLY_UNGROUPED_HOSTS_IN_ROOT);
   if (showOnlyUngroupedHostsInRoot != null) settings.showOnlyUngroupedHostsInRoot = showOnlyUngroupedHostsInRoot;
+  const tabBarPosition = localStorageAdapter.readString(STORAGE_KEY_TAB_BAR_POSITION);
+  if (tabBarPosition != null) settings.tabBarPosition = normalizeTabBarPosition(tabBarPosition);
   const showSftpTab = localStorageAdapter.readBoolean(STORAGE_KEY_SHOW_SFTP_TAB);
   if (showSftpTab != null) settings.showSftpTab = showSftpTab;
   const shellOnlyTabNumberShortcuts = localStorageAdapter.readBoolean(STORAGE_KEY_SHELL_ONLY_TAB_NUMBER_SHORTCUTS);
@@ -569,7 +575,11 @@ export function collectSyncableSettings(): SyncPayload['settings'] {
 
   const ai: NonNullable<SyncPayload['settings']>['ai'] = {};
   const providers = readArraySetting(STORAGE_KEY_AI_PROVIDERS);
-  if (providers) ai.providers = providers.map(stripDeviceBoundApiKey);
+  if (providers) ai.providers = providers.map((provider) => {
+    const next = { ...stripDeviceBoundApiKey(provider) };
+    delete next.customHeaders;
+    return next;
+  });
   const activeProviderId = localStorageAdapter.readString(STORAGE_KEY_AI_ACTIVE_PROVIDER);
   if (activeProviderId != null) ai.activeProviderId = activeProviderId;
   const activeModelId = localStorageAdapter.readString(STORAGE_KEY_AI_ACTIVE_MODEL);
@@ -631,7 +641,12 @@ export async function collectCloudSyncableSettings(): Promise<SyncPayload['setti
   };
 
   if (providers) {
-    ai.providers = await Promise.all(providers.map(withPortableApiKey));
+    ai.providers = await Promise.all(providers.map(async (provider) => {
+      const next = await withPortableApiKey(provider);
+      return isRecord(provider.customHeaders)
+        ? { ...next, customHeaders: await decryptProviderHeaders(provider.customHeaders as Record<string, string>) }
+        : next;
+    }));
   }
   if (webSearchConfig) {
     ai.webSearchConfig = await withPortableApiKey(webSearchConfig);
@@ -668,7 +683,10 @@ function collectLocalBackupSettings(): SyncPayload['settings'] {
  * Apply synced settings to localStorage. Merges terminal settings
  * to preserve platform-specific fields.
  */
-async function applySyncableSettings(settings: NonNullable<SyncPayload['settings']>): Promise<void> {
+async function applySyncableSettings(
+  settings: NonNullable<SyncPayload['settings']>,
+  preparedProviders: Record<string, unknown>[] | undefined,
+): Promise<void> {
   // Theme & Appearance
   if (settings.theme != null) localStorageAdapter.writeString(STORAGE_KEY_THEME, settings.theme);
   if (settings.lightUiThemeId != null) localStorageAdapter.writeString(STORAGE_KEY_UI_THEME_LIGHT, settings.lightUiThemeId);
@@ -811,6 +829,9 @@ async function applySyncableSettings(settings: NonNullable<SyncPayload['settings
       settings.showOnlyUngroupedHostsInRoot,
     );
   }
+  if (settings.tabBarPosition != null) {
+    localStorageAdapter.writeString(STORAGE_KEY_TAB_BAR_POSITION, normalizeTabBarPosition(settings.tabBarPosition));
+  }
   if (settings.showSftpTab != null) {
     localStorageAdapter.writeBoolean(STORAGE_KEY_SHOW_SFTP_TAB, settings.showSftpTab);
   }
@@ -832,11 +853,10 @@ async function applySyncableSettings(settings: NonNullable<SyncPayload['settings
 
   const ai = settings.ai;
   if (ai) {
-    if (ai.providers != null) {
-      const providers = await Promise.all(ai.providers.map(withLocalEncryptedApiKey));
+    if (preparedProviders != null) {
       localStorageAdapter.write(
         STORAGE_KEY_AI_PROVIDERS,
-        mergeAiProvidersPreservingLocalApiKeys(providers),
+        mergeAiProvidersPreservingLocalApiKeys(preparedProviders),
       );
     }
     if (ai.activeProviderId != null) localStorageAdapter.writeString(STORAGE_KEY_AI_ACTIVE_PROVIDER, ai.activeProviderId);
@@ -1153,7 +1173,7 @@ export async function buildLocalVaultPayloadAsync(
  * This ensures both vault data and port-forwarding rules are imported
  * consistently across windows.
  */
-function applyPayload(
+async function preparePayloadApply(
   payload: SyncPayload,
   importers: SyncPayloadImporters,
   options: {
@@ -1161,11 +1181,20 @@ function applyPayload(
     applyPluginSidecars?: PluginSyncSidecarApplier;
     currentHosts?: Host[];
   },
-): Promise<void> {
+): Promise<() => Promise<void>> {
   // Portable payloads must never keep device-bound enc:v1 blobs. Strip them
   // so a previously poisoned cloud/backup snapshot can still restore host
   // shells and let the user re-enter secrets (#2702).
   const sanitizedPayload = stripSyncPayloadEncryptedCredentials(payload);
+  // Prepare credentials before any vault or settings mutation. Encryption can
+  // fail when local credential storage is unavailable; reuse the result below.
+  const providers = sanitizedPayload.settings?.ai?.providers;
+  const preparedProviders = providers == null ? undefined : await Promise.all(providers.map(async (provider) => {
+    const next = await withLocalEncryptedApiKey(provider);
+    return isRecord(provider.customHeaders)
+      ? { ...next, customHeaders: await encryptProviderHeaders(await decryptProviderHeaders(provider.customHeaders as Record<string, string>)) }
+      : next;
+  }));
   const legacyLineTimestampsEnabled = sanitizedPayload.settings?.terminalSettings?.showLineTimestamps === true;
   let hosts = migrateHostsFromLegacyLineTimestamps(sanitizedPayload.hosts, legacyLineTimestampsEnabled);
   if (!options.includeLocalOnlyData) {
@@ -1197,7 +1226,7 @@ function applyPayload(
     vaultImport.groupConfigs = sanitizedPayload.groupConfigs;
   }
 
-  return Promise.resolve(importers.importVaultData(JSON.stringify(vaultImport))).then(async () => {
+  return () => Promise.resolve(importers.importVaultData(JSON.stringify(vaultImport))).then(async () => {
     // Only import port-forwarding rules when the payload explicitly carries
     // them.  Absent field = "payload was created before this feature existed",
     // so local rules are preserved.  Explicitly present [] = "remote has no
@@ -1208,7 +1237,7 @@ function applyPayload(
 
     // Apply synced settings
     if (sanitizedPayload.settings) {
-      await applySyncableSettings(sanitizedPayload.settings);
+      await applySyncableSettings(sanitizedPayload.settings, preparedProviders);
       // Rehydrate in-memory bookmark snapshot after localStorage was updated
       if (sanitizedPayload.settings.sftpGlobalBookmarks != null) rehydrateGlobalSftpBookmarks();
       importers.onSettingsApplied?.();
@@ -1223,19 +1252,26 @@ function applyPayload(
   });
 }
 
-export function applySyncPayload(
+export function prepareSyncPayloadApply(
   payload: SyncPayload,
   importers: SyncPayloadImporters,
   options?: {
     applyPluginSidecars?: PluginSyncSidecarApplier;
     currentHosts?: Host[];
   },
-): Promise<void> {
-  return applyPayload(payload, importers, {
+): Promise<() => Promise<void>> {
+  return preparePayloadApply(payload, importers, {
     includeLocalOnlyData: false,
     applyPluginSidecars: options?.applyPluginSidecars,
     currentHosts: options?.currentHosts,
   });
+}
+
+export async function applySyncPayload(
+  ...args: Parameters<typeof prepareSyncPayloadApply>
+): Promise<void> {
+  const applyPreparedPayload = await prepareSyncPayloadApply(...args);
+  await applyPreparedPayload();
 }
 
 export async function prepareLocalVaultPayloadApply(
@@ -1252,9 +1288,10 @@ export async function prepareLocalVaultPayloadApply(
   const sanitizedPayload = stripSyncPayloadEncryptedCredentials(payload);
   const prepareConvergentRestore = dependencies.prepareConvergentRestore
     ?? prepareRestoredPayloadConvergentWrites;
+  const applyPreparedPayload = await preparePayloadApply(sanitizedPayload, importers, { includeLocalOnlyData: true });
   const commitConvergentRestore = await prepareConvergentRestore(sanitizedPayload);
   return async () => {
-    await applyPayload(sanitizedPayload, importers, { includeLocalOnlyData: true });
+    await applyPreparedPayload();
     await commitConvergentRestore();
   };
 }

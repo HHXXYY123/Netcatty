@@ -1,6 +1,8 @@
 import type { Messages } from '../types';
 
 export const zhCNTerminalMessages: Messages = {
+  'terminal.menu.saveScreen': '保存当前屏幕',
+  'terminal.saveScreen.failed': '保存终端屏幕失败。',
   'terminal.sudoHint.pressEnter': '按 Enter 粘贴已保存的密码',
   'terminal.passwordPicker.title': '已保存的密码',
   'terminal.passwordPicker.empty': '没有已保存的密码',
@@ -289,6 +291,8 @@ export const zhCNTerminalMessages: Messages = {
   'settings.terminal.accessibility.minimumContrastRatio.desc': '调整颜色以满足对比度要求 (1 = 禁用, 21 = 最大)',
   'settings.terminal.behavior.rightClick': '右键行为',
   'settings.terminal.behavior.rightClick.desc': '在终端中右键时执行的操作',
+  'settings.terminal.behavior.rightClick.longPressMenu': '右键长按显示菜单',
+  'settings.terminal.behavior.rightClick.longPressMenu.desc': '右键设为粘贴或选词时，按住半秒打开菜单。不影响接管鼠标的终端应用。',
   'settings.terminal.behavior.rightClick.fullscreenMenu': '在全屏应用中也显示菜单',
   'settings.terminal.behavior.rightClick.fullscreenMenu.desc':
     '即使 tmux、vim 等全屏应用接管了鼠标，也显示右键菜单。关闭时右键会交给应用处理（Shift+右键仍可打开菜单）。',
@@ -343,6 +347,11 @@ export const zhCNTerminalMessages: Messages = {
   'settings.terminal.behavior.dynamicTabTitle.off': '关闭',
   'settings.terminal.behavior.dynamicTabTitle.agent': '仅 Agent',
   'settings.terminal.behavior.dynamicTabTitle.all': '全部会话',
+  'settings.terminal.behavior.tabDoubleClick': '标签页双击行为',
+  'settings.terminal.behavior.tabDoubleClick.desc': '选择双击顶部终端标签页时执行的操作。',
+  'settings.terminal.behavior.tabDoubleClick.duplicate': '复制会话（新建连接）',
+  'settings.terminal.behavior.tabDoubleClick.copy': '复制标签页（复用连接）',
+  'settings.terminal.behavior.tabDoubleClick.disabled': '无操作',
   'settings.terminal.behavior.oscNotifications': 'OSC 桌面通知',
   'settings.terminal.behavior.oscNotifications.desc':
     '当程序发出 OSC 9、OSC 777 notify 或 kitty OSC 99 时弹出系统通知。Codex 等 Agent 用它提示回合完成或等待审批。',

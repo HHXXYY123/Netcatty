@@ -23,6 +23,7 @@ export type SettingsChromeSnapshot = {
   darkUiThemeId: string;
   uiLanguage: UILanguage;
   windowOpacity: number;
+  tabBarPosition: 'top' | 'bottom';
   showSftpTab: boolean;
   showHostTreeSidebar: boolean;
   showRecentHosts: boolean;
@@ -57,6 +58,7 @@ export const DEFAULT_SETTINGS_CHROME_SNAPSHOT: SettingsChromeSnapshot = Object.f
   darkUiThemeId: 'default',
   uiLanguage: 'en',
   windowOpacity: 1,
+  tabBarPosition: 'top',
   showSftpTab: true,
   showHostTreeSidebar: true,
   showRecentHosts: true,
@@ -84,6 +86,7 @@ export function settingsChromeSnapshotsEqual(
     && a.darkUiThemeId === b.darkUiThemeId
     && a.uiLanguage === b.uiLanguage
     && a.windowOpacity === b.windowOpacity
+    && a.tabBarPosition === b.tabBarPosition
     && a.showSftpTab === b.showSftpTab
     && a.showHostTreeSidebar === b.showHostTreeSidebar
     && a.showRecentHosts === b.showRecentHosts
