@@ -1,0 +1,61 @@
+name: build-windows-system-theme
+
+on:
+  push:
+    branches:
+      - fix/windows-system-theme-sync
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-system-theme-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      NPM_CONFIG_FETCH_RETRIES: "4"
+      NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "1000"
+      NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "10000"
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      VITE_SYNC_GITHUB_CLIENT_ID: ${{ secrets.VITE_SYNC_GITHUB_CLIENT_ID }}
+      VITE_SYNC_GOOGLE_CLIENT_ID: ${{ secrets.VITE_SYNC_GOOGLE_CLIENT_ID }}
+      VITE_SYNC_GOOGLE_CLIENT_SECRET: ${{ secrets.VITE_SYNC_GOOGLE_CLIENT_SECRET }}
+      VITE_SYNC_ONEDRIVE_CLIENT_ID: ${{ secrets.VITE_SYNC_ONEDRIVE_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Install dependencies
+        run: npm ci
+      - name: Test system theme delivery and preload boundaries
+        run: node --test electron/bridges/systemTheme.test.cjs electron/preload/*.test.cjs
+      - name: Lint changed renderer files
+        run: npx eslint application/state/useSettingsState.ts types/global/netcatty-bridge-sync.d.ts
+      - name: Set test build version
+        shell: pwsh
+        run: npm pkg set "version=0.0.0-theme-fix.$($env:GITHUB_SHA.Substring(0,7))"
+      - name: Build Windows x64 installer
+        env:
+          ELECTRON_BUILDER_PUBLISH: "never"
+        run: npm run pack:win-x64
+      - name: Verify packaged SSH cipher negotiation
+        run: node scripts/test-packaged-ssh-ciphers.cjs
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: netcatty-windows-x64-system-theme-${{ github.sha }}
+          path: |
+            release/*.exe
+            release/*.zip
+          if-no-files-found: error
+          retention-days: 14
