@@ -1,0 +1,74 @@
+name: Sync upstream
+
+on:
+  schedule:
+    # Daily 20:23 UTC / 04:23 Asia/Shanghai the next day.
+    - cron: '23 20 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Build main even when upstream is already included (also recovers a failed build dispatch)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'HHXXYY123/Netcatty' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ github.token }}
+          persist-credentials: true
+
+      - name: Merge and push upstream main
+        id: sync
+        env:
+          UPSTREAM_URL: https://github.com/binaricat/Netcatty.git
+        run: bash .github/scripts/sync-upstream.sh
+
+      # GITHUB_TOKEN pushes do not start push-triggered workflows. Dispatch the
+      # existing build explicitly, with no tag, release, or extra bundled inputs.
+      - name: Dispatch package build
+        id: build
+        if: ${{ success() && (steps.sync.outputs.changed == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_build)) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref main -f publish_release=false
+
+      - name: Summarize sync and build dispatch
+        if: ${{ always() }}
+        env:
+          SYNC_OUTCOME: ${{ steps.sync.outcome }}
+          CHANGED: ${{ steps.sync.outputs.changed }}
+          TARGET_SHA: ${{ steps.sync.outputs.sha }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          FORCE_BUILD: ${{ inputs.force_build || false }}
+        run: |
+          {
+            printf '## Upstream sync\n\n'
+            printf -- '- Target: `%s`, branch `main`\n' "$GITHUB_REPOSITORY"
+            printf -- '- Sync result: `%s`\n' "$SYNC_OUTCOME"
+            printf -- '- Changed: `%s`\n' "${CHANGED:-not available}"
+            printf -- '- Target SHA: `%s`\n' "${TARGET_SHA:-not available (sync failed or did not run)}"
+            printf -- '- Force build requested: `%s`\n' "$FORCE_BUILD"
+            printf -- '- Build dispatch result: `%s`\n' "$BUILD_OUTCOME"
+            printf '\nBuild dispatch success means the request was accepted, not that packaging passed.\n'
+            if [[ "$SYNC_OUTCOME" != 'success' ]]; then
+              printf '\nSync did not succeed; no build was dispatched. Inspect the failed step before retrying.\n'
+            elif [[ "$BUILD_OUTCOME" == 'failure' ]]; then
+              printf '\nTo retry a failed dispatch after syncing, run this workflow manually on main with force_build=true.\n'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
