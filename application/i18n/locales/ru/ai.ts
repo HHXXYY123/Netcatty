@@ -1,6 +1,8 @@
 import type { Messages } from '../types';
 
 export const ruAiMessages: Messages = {
+  'ai.chat.iterationLimitReached': 'Достигнут лимит цикла инструментов ({limit} итераций). Можно продолжить в этом чате. Запущенные задачи терминала не останавливаются.',
+  'ai.chat.continue': 'Продолжить',
   'ai.chat.attachmentContentUnavailable': 'Содержимое недоступно на этом устройстве',
   'ai.chat.contextUsage': 'Контекст: {used} / {max} токенов',
   // AI Settings
@@ -273,6 +275,7 @@ export const ruAiMessages: Messages = {
   'ai.defaultAgent': 'Агент по умолчанию',
   'ai.defaultAgent.description': 'Агент, который будет использоваться при запуске новой AI-сессии',
   'ai.defaultAgent.catty': 'Catty (встроенный)',
+  'ai.defaultAgent.unavailable': 'Недоступен',
   'ai.toolAccess.title': 'Доступ к инструментам',
   'ai.toolAccess.mode': 'Режим доступа Netcatty',
   'ai.toolAccess.description': 'Выберите, как внешние агенты получают доступ к сессиям Netcatty. MCP предоставляет встроенный сервер, а Skills + CLI указывает агентам на локальный skill Netcatty и команды CLI.',
